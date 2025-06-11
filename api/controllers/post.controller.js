@@ -1,6 +1,7 @@
 import prisma from "../lib/prisma.js";
 import jwt from "jsonwebtoken";
 
+// Get all posts with query filters
 export const getPosts = async (req, res) => {
   const query = req.query;
 
@@ -18,17 +19,17 @@ export const getPosts = async (req, res) => {
       },
     });
 
-    // setTimeout(() => {
     res.status(200).json(posts);
-    // }, 3000);
   } catch (err) {
     console.log(err);
     res.status(500).json({ message: "Failed to get posts" });
   }
 };
 
+// Get single post with optional saved state
 export const getPost = async (req, res) => {
   const id = req.params.id;
+
   try {
     const post = await prisma.post.findUnique({
       where: { id },
@@ -43,11 +44,19 @@ export const getPost = async (req, res) => {
       },
     });
 
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
     const token = req.cookies?.token;
 
     if (token) {
       jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, payload) => {
-        if (!err) {
+        if (err) {
+          return res.status(401).json({ message: "Invalid token" });
+        }
+
+        try {
           const saved = await prisma.savedPost.findUnique({
             where: {
               userId_postId: {
@@ -56,17 +65,26 @@ export const getPost = async (req, res) => {
               },
             },
           });
-          res.status(200).json({ ...post, isSaved: saved ? true : false });
+
+          return res.status(200).json({
+            ...post,
+            isSaved: !!saved,
+          });
+        } catch (innerErr) {
+          console.log(innerErr);
+          return res.status(500).json({ message: "Failed to get post" });
         }
       });
+    } else {
+      return res.status(200).json({ ...post, isSaved: false });
     }
-    res.status(200).json({ ...post, isSaved: false });
   } catch (err) {
     console.log(err);
     res.status(500).json({ message: "Failed to get post" });
   }
 };
 
+// Add a new post
 export const addPost = async (req, res) => {
   const body = req.body;
   const tokenUserId = req.userId;
@@ -81,6 +99,7 @@ export const addPost = async (req, res) => {
         },
       },
     });
+
     res.status(200).json(newPost);
   } catch (err) {
     console.log(err);
@@ -88,6 +107,7 @@ export const addPost = async (req, res) => {
   }
 };
 
+// Update a post (placeholder)
 export const updatePost = async (req, res) => {
   try {
     res.status(200).json();
@@ -97,6 +117,7 @@ export const updatePost = async (req, res) => {
   }
 };
 
+// Delete a post
 export const deletePost = async (req, res) => {
   const id = req.params.id;
   const tokenUserId = req.userId;
@@ -106,7 +127,7 @@ export const deletePost = async (req, res) => {
       where: { id },
     });
 
-    if (post.userId !== tokenUserId) {
+    if (!post || post.userId !== tokenUserId) {
       return res.status(403).json({ message: "Not Authorized!" });
     }
 

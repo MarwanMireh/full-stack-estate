@@ -1,23 +1,42 @@
-import { defer } from "react-router-dom";
+import { redirect } from "react-router-dom";
 import apiRequest from "./apiRequest";
 
-export const singlePageLoader = async ({ request, params }) => {
-  const res = await apiRequest("/posts/" + params.id);
-  return res.data;
+// ✅ ObjectID validator (24-character hex string)
+const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+export const singlePageLoader = async ({ params }) => {
+  const { id } = params;
+
+  if (!isValidObjectId(id)) {
+    console.warn("Invalid ObjectID:", id);
+    return redirect("/not-found");
+  }
+
+  try {
+    const res = await apiRequest("/posts/" + id);
+    return res.data;
+  } catch (err) {
+    console.error("Error fetching single post:", err);
+    return redirect("/not-found");
+  }
 };
-export const listPageLoader = async ({ request, params }) => {
-  const query = request.url.split("?")[1];
-  const postPromise = apiRequest("/posts?" + query);
-  return defer({
-    postResponse: postPromise,
-  });
+
+export const listPageLoader = async ({ request }) => {
+  const url = new URL(request.url);
+  const query = url.search; // includes the `?`
+
+  const postResponse = apiRequest("/posts" + query);
+  return {
+    postResponse,
+  };
 };
 
 export const profilePageLoader = async () => {
-  const postPromise = apiRequest("/users/profilePosts");
-  const chatPromise = apiRequest("/chats");
-  return defer({
-    postResponse: postPromise,
-    chatResponse: chatPromise,
-  });
+  const postResponse = apiRequest("/users/profilePosts");
+  const chatResponse = apiRequest("/chats");
+
+  return {
+    postResponse,
+    chatResponse,
+  };
 };

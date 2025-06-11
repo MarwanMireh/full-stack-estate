@@ -88,6 +88,7 @@ model Chat {
   users     User[]    @relation(fields: [userIDs], references: [id])
   userIDs   String[]  @db.ObjectId
   createdAt DateTime  @default(now())
+  updatedAt DateTime?  @updatedAt
   seenBy    String[]  @db.ObjectId
   messages  Message[]
   lastMessage String?

@@ -9,14 +9,17 @@ const io = new Server({
 let onlineUser = [];
 
 const addUser = (userId, socketId) => {
-  const userExits = onlineUser.find((user) => user.userId === userId);
-  if (!userExits) {
+  const userExists = onlineUser.find((user) => user.userId === userId);
+  if (!userExists) {
     onlineUser.push({ userId, socketId });
+    console.log("✅ New user added:", userId);
+    console.log("👥 Current online users:", onlineUser);
   }
 };
 
 const removeUser = (socketId) => {
   onlineUser = onlineUser.filter((user) => user.socketId !== socketId);
+  console.log("❌ User disconnected. Remaining online users:", onlineUser);
 };
 
 const getUser = (userId) => {
@@ -24,13 +27,20 @@ const getUser = (userId) => {
 };
 
 io.on("connection", (socket) => {
+  console.log("🔌 A user connected:", socket.id);
+
   socket.on("newUser", (userId) => {
     addUser(userId, socket.id);
   });
 
   socket.on("sendMessage", ({ receiverId, data }) => {
     const receiver = getUser(receiverId);
-    io.to(receiver.socketId).emit("getMessage", data);
+
+    if (receiver && receiver.socketId) {
+      io.to(receiver.socketId).emit("getMessage", data);
+    } else {
+      console.warn("❌ Receiver not online or not found:", receiverId);
+    }
   });
 
   socket.on("disconnect", () => {
@@ -38,4 +48,5 @@ io.on("connection", (socket) => {
   });
 });
 
-io.listen("4000");
+io.listen(4000);
+console.log("✅ Socket.IO server is running on port 4000");
